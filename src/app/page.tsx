@@ -1,113 +1,227 @@
-import Image from 'next/image'
+"use client";
+
+import { APIKeyInput } from "@/components/APIKeyInput";
+import { CodeBlock } from "@/components/CodeBlock";
+import { LanguageSelect } from "@/components/LanguageSelect";
+import { ModelSelect } from "@/components/ModelSelect";
+import { TextBlock } from "@/components/TextBlock";
+import { OpenAIModel, TranslateBody } from "@/types/types";
+import Head from "next/head";
+import { useEffect, useState } from "react";
 
 export default function Home() {
+  const [inputLanguage, setInputLanguage] = useState<string>("JavaScript");
+  const [outputLanguage, setOutputLanguage] = useState<string>("Python");
+  const [inputCode, setInputCode] = useState<string>("");
+  const [outputCode, setOutputCode] = useState<string>("");
+  const [model, setModel] = useState<OpenAIModel>("gpt-3.5-turbo");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [hasTranslated, setHasTranslated] = useState<boolean>(false);
+  const [apiKey, setApiKey] = useState<string>("");
+
+  const handleTranslate = async () => {
+    const maxCodeLength = model === "gpt-3.5-turbo" ? 6000 : 12000;
+
+    if (!apiKey) {
+      alert("Please enter an API key.");
+      return;
+    }
+
+    if (inputLanguage === outputLanguage) {
+      alert("Please select different languages.");
+      return;
+    }
+
+    if (!inputCode) {
+      alert("Please enter some code.");
+      return;
+    }
+
+    if (inputCode.length > maxCodeLength) {
+      alert(
+        `Please enter code less than ${maxCodeLength} characters. You are currently at ${inputCode.length} characters.`
+      );
+      return;
+    }
+
+    setLoading(true);
+    setOutputCode("");
+
+    const controller = new AbortController();
+
+    const body: TranslateBody = {
+      inputLanguage,
+      outputLanguage,
+      inputCode,
+      model,
+      apiKey,
+    };
+
+    const response = await fetch("/api/translate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      setLoading(false);
+      alert("Something went wrong.");
+      return;
+    }
+
+    const data = response.body;
+
+    if (!data) {
+      setLoading(false);
+      alert("Something went wrong.");
+      return;
+    }
+
+    const reader = data.getReader();
+    const decoder = new TextDecoder();
+    let done = false;
+    let code = "";
+
+    while (!done) {
+      const { value, done: doneReading } = await reader.read();
+      done = doneReading;
+      const chunkValue = decoder.decode(value);
+
+      code += chunkValue;
+
+      setOutputCode((prevCode) => prevCode + chunkValue);
+    }
+
+    setLoading(false);
+    setHasTranslated(true);
+    copyToClipboard(code);
+  };
+
+  const copyToClipboard = (text: string) => {
+    const el = document.createElement("textarea");
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand("copy");
+    document.body.removeChild(el);
+  };
+
+  const handleApiKeyChange = (value: string) => {
+    setApiKey(value);
+
+    localStorage.setItem("apiKey", value);
+  };
+
+  useEffect(() => {
+    if (hasTranslated) {
+      handleTranslate();
+    }
+  }, [outputLanguage]);
+
+  useEffect(() => {
+    const apiKey = localStorage.getItem("apiKey");
+
+    if (apiKey) {
+      setApiKey(apiKey);
+    }
+  }, []);
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <>
+      <Head>
+        <title>Code Translator</title>
+        <meta
+          name="description"
+          content="Use AI to translate code from one language to another."
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <div className="flex h-full min-h-screen flex-col items-center bg-[#0E1117] px-4 pb-20 text-neutral-200 sm:px-10">
+        <div className="mt-10 flex flex-col items-center justify-center sm:mt-20">
+          <div className="text-4xl font-bold">AI Code Translator</div>
+        </div>
+
+        <div className="mt-6 text-center text-sm">
+          <APIKeyInput apiKey={apiKey} onChange={handleApiKeyChange} />
+        </div>
+
+        <div className="mt-2 flex items-center space-x-2">
+          <ModelSelect model={model} onChange={(value) => setModel(value)} />
+
+          <button
+            className="w-[140px] cursor-pointer rounded-md bg-violet-500 px-4 py-2 font-bold hover:bg-violet-600 active:bg-violet-700"
+            onClick={() => handleTranslate()}
+            disabled={loading}
           >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+            {loading ? "Translating..." : "Translate"}
+          </button>
+        </div>
+
+        <div className="mt-2 text-center text-xs">
+          {loading
+            ? "Translating..."
+            : hasTranslated
+            ? "Output copied to clipboard!"
+            : 'Enter some code and click "Translate"'}
+        </div>
+
+        <div className="mt-6 flex w-full max-w-[1200px] flex-col justify-between sm:flex-row sm:space-x-4">
+          <div className="h-100 flex flex-col justify-center space-y-2 sm:w-2/4">
+            <div className="text-center text-xl font-bold">Input</div>
+
+            <LanguageSelect
+              language={inputLanguage}
+              onChange={(value) => {
+                setInputLanguage(value);
+                setHasTranslated(false);
+                setInputCode("");
+                setOutputCode("");
+              }}
             />
-          </a>
+
+            {inputLanguage === "Natural Language" ? (
+              <TextBlock
+                text={inputCode}
+                editable={!loading}
+                onChange={(value) => {
+                  setInputCode(value);
+                  setHasTranslated(false);
+                }}
+              />
+            ) : (
+              <CodeBlock
+                code={inputCode}
+                editable={!loading}
+                onChange={(value) => {
+                  setInputCode(value);
+                  setHasTranslated(false);
+                }}
+              />
+            )}
+          </div>
+          <div className="mt-8 flex h-full flex-col justify-center space-y-2 sm:mt-0 sm:w-2/4">
+            <div className="text-center text-xl font-bold">Output</div>
+
+            <LanguageSelect
+              language={outputLanguage}
+              onChange={(value) => {
+                setOutputLanguage(value);
+                setOutputCode("");
+              }}
+            />
+
+            {outputLanguage === "Natural Language" ? (
+              <TextBlock text={outputCode} />
+            ) : (
+              <CodeBlock code={outputCode} />
+            )}
+          </div>
         </div>
       </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
+    </>
+  );
 }
