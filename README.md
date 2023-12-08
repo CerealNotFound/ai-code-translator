@@ -1,4 +1,4 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+This project was cloned from a [Vercel Template](https://vercel.com/templates/next.js/ai-code-translator)  and then modified to use app directory and add other features.
 
 ## Getting Started
 
