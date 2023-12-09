@@ -5,6 +5,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 import { LanguageSelect } from "@/components/LanguageSelect";
 import { ModelSelect } from "@/components/ModelSelect";
 import { TextBlock } from "@/components/TextBlock";
+import ChangeTheme from "@/components/ChangeTheme";
 import { OpenAIModel, TranslateBody } from "@/types/types";
 import Head from "next/head";
 import { useEffect, useState } from "react";
@@ -14,9 +15,12 @@ export default function Home() {
   const [outputLanguage, setOutputLanguage] = useState<string>("Python");
   const [inputCode, setInputCode] = useState<string>("");
   const [outputCode, setOutputCode] = useState<string>("");
+  const [documentation, setDocumentation] = useState<string>("");
   const [model, setModel] = useState<OpenAIModel>("gpt-3.5-turbo");
   const [loading, setLoading] = useState<boolean>(false);
+  const [genLoading, setGenLoading] = useState(false);
   const [hasTranslated, setHasTranslated] = useState<boolean>(false);
+  const [hasDocumented, setHasDocumented] = useState<boolean>(false);
   const [apiKey, setApiKey] = useState<string>("");
 
   const handleTranslate = async () => {
@@ -115,6 +119,56 @@ export default function Home() {
     localStorage.setItem("apiKey", value);
   };
 
+  const handleGeneration = async () => {
+    setGenLoading(true);
+    setHasDocumented(false);
+
+    const response = await fetch("/api/documentation", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        inputCode: inputCode,
+        model: model,
+        key: apiKey,
+        inputLanguage: inputLanguage,
+      }),
+    });
+
+    if (!response.ok) {
+      setGenLoading(false);
+      alert("Something went wrong.");
+      return;
+    }
+
+    const data = response.body;
+
+    if (!data) {
+      setGenLoading(false);
+      alert("Something went wrong.");
+      return;
+    }
+
+    const reader = data.getReader();
+    const decoder = new TextDecoder();
+    let done = false;
+    let doc = "";
+
+    setHasDocumented(true);
+    while (!done) {
+      const { value, done: doneReading } = await reader.read();
+      done = doneReading;
+      const chunkValue = decoder.decode(value);
+
+      doc += chunkValue;
+
+      setDocumentation((prevDoc) => prevDoc + chunkValue);
+    }
+
+    setGenLoading(false);
+  };
+
   useEffect(() => {
     if (hasTranslated) {
       handleTranslate();
@@ -132,11 +186,6 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Code Translator</title>
-        <meta
-          name="description"
-          content="Use AI to translate code from one language to another."
-        />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -144,6 +193,7 @@ export default function Home() {
         <div className="mt-10 flex flex-col items-center justify-center sm:mt-20">
           <div className="text-4xl font-bold">AI Code Translator</div>
         </div>
+        <ChangeTheme />
 
         <div className="mt-6 text-center text-sm">
           <APIKeyInput apiKey={apiKey} onChange={handleApiKeyChange} />
@@ -220,6 +270,23 @@ export default function Home() {
               <CodeBlock code={outputCode} />
             )}
           </div>
+        </div>
+        <div>
+          <button
+            className="cursor-pointer rounded-md bg-violet-500 px-4 py-2 mt-8 font-bold hover:bg-violet-600 active:bg-violet-700"
+            onClick={() => handleGeneration()}
+            disabled={genLoading}
+          >
+            {genLoading ? "Generating..." : "Generate Input Documentation"}
+          </button>
+          {hasDocumented ? (
+            <div className="mt-6 flex w-1/2 space-y-2 sm:mt-0 sm:w-2/4">
+              <div className="text-center text-xl font-bold">Documentation</div>
+              <TextBlock text={documentation} editable={!genLoading} />
+            </div>
+          ) : (
+            ""
+          )}
         </div>
       </div>
     </>

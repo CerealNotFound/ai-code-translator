@@ -1,8 +1,11 @@
 import { StreamLanguage } from "@codemirror/language";
 import { go } from "@codemirror/legacy-modes/mode/go";
 import { tokyoNight } from "@uiw/codemirror-theme-tokyo-night";
+import { dracula } from "@uiw/codemirror-theme-dracula";
+import { githubDark } from "@uiw/codemirror-theme-github";
 import CodeMirror from "@uiw/react-codemirror";
-import { FC, useEffect, useState } from "react";
+import { FC, useContext, useEffect, useState } from "react";
+import { ThemeContext } from "@/contexts/themeContext";
 
 interface Props {
   code: string;
@@ -16,6 +19,22 @@ export const CodeBlock: FC<Props> = ({
   onChange = () => {},
 }) => {
   const [copyText, setCopyText] = useState<string>("Copy");
+  const themeContext = useContext(ThemeContext);
+
+  const theme = (theme: string) => {
+    switch (theme) {
+      case "tokyoNight":
+        return tokyoNight;
+      case "dracula":
+        return dracula;
+      case "githubDark":
+        return githubDark;
+      case "dark":
+        return "dark";
+      default:
+        return tokyoNight;
+    }
+  };
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -42,7 +61,7 @@ export const CodeBlock: FC<Props> = ({
         value={code}
         minHeight="500px"
         extensions={[StreamLanguage.define(go)]}
-        theme={tokyoNight}
+        theme={theme(themeContext.theme)}
         onChange={(value) => onChange(value)}
       />
     </div>

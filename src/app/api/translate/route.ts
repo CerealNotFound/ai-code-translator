@@ -1,7 +1,8 @@
 import { TranslateBody } from "@/types/types";
 import { OpenAIStream } from "@/utils";
+import { NextResponse } from "next/server";
 
-export const config = {
+export const runtime = {
   runtime: "edge",
 };
 
@@ -18,9 +19,9 @@ export const POST = async (req: Request): Promise<Response> => {
       apiKey
     );
 
-    return new Response(stream);
+    return new NextResponse(stream);
   } catch (error) {
     console.error(error);
-    return new Response("Error", { status: 500 });
+    return new NextResponse("Error", { status: 500 });
   }
 };
