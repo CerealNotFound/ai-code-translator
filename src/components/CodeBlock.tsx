@@ -6,6 +6,8 @@ import { githubDark } from "@uiw/codemirror-theme-github";
 import CodeMirror from "@uiw/react-codemirror";
 import { FC, useContext, useEffect, useState } from "react";
 import { ThemeContext } from "@/contexts/themeContext";
+import { Socket } from "socket.io-client";
+import { io } from "socket.io-client";
 
 interface Props {
   code: string;
@@ -20,6 +22,8 @@ export const CodeBlock: FC<Props> = ({
 }) => {
   const [copyText, setCopyText] = useState<string>("Copy");
   const themeContext = useContext(ThemeContext);
+
+  const socket = io("http://localhost:3030");
 
   const theme = (theme: string) => {
     switch (theme) {
@@ -43,6 +47,12 @@ export const CodeBlock: FC<Props> = ({
 
     return () => clearTimeout(timeout);
   }, [copyText]);
+
+  useEffect(() => {
+    socket.on("connect", () => {
+      console.log(socket.id);
+    });
+  }, []);
 
   return (
     <div className="relative">
