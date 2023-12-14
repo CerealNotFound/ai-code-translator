@@ -6,9 +6,12 @@ import { LanguageSelect } from "@/components/LanguageSelect";
 import { ModelSelect } from "@/components/ModelSelect";
 import { TextBlock } from "@/components/TextBlock";
 import ChangeTheme from "@/components/ChangeTheme";
+import Collaborate from "@/components/Collaborate";
 import { OpenAIModel, TranslateBody } from "@/types/types";
 import Head from "next/head";
 import { useEffect, useState } from "react";
+import { ChangeSet, Text } from "@codemirror/state";
+import { Update, rebaseUpdates } from "@codemirror/collab";
 
 export default function Home() {
   const [inputLanguage, setInputLanguage] = useState<string>("JavaScript");
@@ -183,6 +186,10 @@ export default function Home() {
     }
   }, []);
 
+  const updates: Update[] = [];
+
+  let doc = Text.of([inputCode]);
+
   return (
     <>
       <Head>
@@ -194,7 +201,7 @@ export default function Home() {
           <div className="text-4xl font-bold">AI Code Translator</div>
         </div>
         <ChangeTheme />
-
+        <Collaborate />
         <div className="mt-6 text-center text-sm">
           <APIKeyInput apiKey={apiKey} onChange={handleApiKeyChange} />
         </div>
